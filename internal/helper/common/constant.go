@@ -17,3 +17,9 @@ type UserClaims struct {
 	Id int64 `json:"id"`
 	jwt.RegisteredClaims
 }
+
+type Meta struct {
+	Limit  int
+	Offset int
+	Total  int
+}

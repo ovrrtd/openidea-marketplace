@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"ecomm/internal/helper/errorer"
 	"ecomm/internal/model/entity"
-	"fmt"
 	"net/http"
 	"time"
 
@@ -59,7 +58,6 @@ func (r *UserRepositoryImpl) FindByUsername(ctx context.Context, username string
 		}
 		return nil, http.StatusInternalServerError, errors.Wrap(errorer.ErrInternalDatabase, err.Error())
 	}
-	fmt.Printf("user : %+v", user)
 	return &user, http.StatusOK, nil
 }
 

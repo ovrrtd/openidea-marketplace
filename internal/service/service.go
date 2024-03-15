@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"ecomm/internal/helper/common"
 	"ecomm/internal/model/request"
 	"ecomm/internal/model/response"
 	"ecomm/internal/repository"
@@ -12,9 +13,12 @@ import (
 
 type Service interface {
 	// Product
-	GetProducts(ctx context.Context) ([]response.Product, int, error)
+	GetProducts(ctx context.Context, req request.GetProducts) ([]response.Product, *common.Meta, int, error)
 	GetProductByID(ctx context.Context, id int64) (*response.Product, int, error)
+	DeleteProductByID(ctx context.Context, id int64) (int, error)
 	CreateProduct(ctx context.Context, req request.Product) (*response.Product, int, error)
+	UpdateProductByID(ctx context.Context, req request.UpdateProduct) (*response.Product, int, error)
+	UpdateProductStockByID(ctx context.Context, req request.UpdateProductStock) (int, error)
 	// User
 	Register(ctx context.Context, payload request.Register) (*response.Login, int, error)
 	Login(ctx context.Context, payload request.Login) (*response.Login, int, error)

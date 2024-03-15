@@ -5,8 +5,10 @@ import (
 	"ecomm/internal/helper/errorer"
 	httpHelper "ecomm/internal/helper/http"
 	"ecomm/internal/helper/jwt"
+	"ecomm/internal/model/response"
 	"ecomm/internal/service"
 	"net/http"
+	"strconv"
 
 	"github.com/labstack/echo/v4"
 	"github.com/rs/zerolog"
@@ -18,7 +20,8 @@ type middleware struct {
 }
 
 type Middleware interface {
-	Authentication(next echo.HandlerFunc) echo.HandlerFunc
+	Authentication(isThrowError bool) func(next echo.HandlerFunc) echo.HandlerFunc
+	IsProductOwner(next echo.HandlerFunc) echo.HandlerFunc
 }
 
 func New(logger zerolog.Logger, service service.Service) Middleware {
@@ -28,30 +31,53 @@ func New(logger zerolog.Logger, service service.Service) Middleware {
 	}
 }
 
-func (m *middleware) Authentication(next echo.HandlerFunc) echo.HandlerFunc {
+func (m *middleware) Authentication(isThrowError bool) func(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			m.logger.Info().Msg("Authentication")
+			token := httpHelper.GetJWTFromRequest(c.Request())
+
+			if token == "" && isThrowError {
+				return httpHelper.ResponseJSONHTTP(c, http.StatusUnauthorized, "", nil, nil, errorer.ErrUnauthorized)
+			}
+
+			if token != "" {
+				claims := &common.UserClaims{}
+				err := jwt.VerifyJwt(token, claims)
+				if err != nil {
+					return httpHelper.ResponseJSONHTTP(c, http.StatusForbidden, "", nil, nil, errorer.ErrForbidden)
+				}
+
+				usr, code, err := m.service.GetUserByID(c.Request().Context(), claims.Id)
+				if err != nil {
+					return httpHelper.ResponseJSONHTTP(c, code, "", nil, nil, err)
+				}
+				c.Set(common.EncodedUserJwtCtxKey.ToString(), usr)
+			}
+
+			return next(c)
+		}
+	}
+}
+
+func (m *middleware) IsProductOwner(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		m.logger.Info().Msg("Authentication")
-		token := httpHelper.GetJWTFromRequest(c.Request())
-
-		if token == "" {
-			return httpHelper.ResponseJSONHTTP(c, http.StatusUnauthorized, "", nil, nil, errorer.ErrUnauthorized)
-		}
-		m.logger.Info().Msgf("Token: %s", token)
-		// TODO: validate token
-		claims := &common.UserClaims{}
-		err := jwt.VerifyJwt(token, claims)
+		usr := c.Get(common.EncodedUserJwtCtxKey.ToString()).(*response.User)
+		id, err := strconv.Atoi(c.Param("id"))
 		if err != nil {
-			return httpHelper.ResponseJSONHTTP(c, http.StatusForbidden, "", nil, nil, errorer.ErrForbidden)
+			return httpHelper.ResponseJSONHTTP(c, http.StatusBadRequest, "", nil, nil, err)
 		}
-		m.logger.Info().Msgf("Claims: %v", claims)
 
-		usr, code, err := m.service.GetUserByID(c.Request().Context(), claims.Id)
+		prd, code, err := m.service.GetProductByID(c.Request().Context(), int64(id))
 		if err != nil {
+			m.logger.Debug().Stack().Err(err).Send()
 			return httpHelper.ResponseJSONHTTP(c, code, "", nil, nil, err)
 		}
-		m.logger.Info().Msgf("User: %v", usr)
-		c.Set(common.EncodedUserJwtCtxKey.ToString(), usr)
-		m.logger.Info().Msg("Authentication done")
+
+		if prd.UserID != usr.ID {
+			return httpHelper.ResponseJSONHTTP(c, http.StatusForbidden, "", nil, nil, errorer.ErrForbidden)
+		}
+		m.logger.Debug().Msg("IsProductOwner check done")
 		return next(c)
 	}
 }
