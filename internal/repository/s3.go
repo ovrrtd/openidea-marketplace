@@ -21,7 +21,6 @@ type S3Repository interface {
 }
 
 func NewS3Repository(logger zerolog.Logger) S3Repository {
-	// fmt.Println("masuk sini")
 	creds := credentials.NewStaticCredentialsProvider(os.Getenv("S3_ID"), os.Getenv("S3_SECRET_KEY"), "")
 
 	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithCredentialsProvider(creds), config.WithRegion("ap-southeast-1"))

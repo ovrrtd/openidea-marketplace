@@ -1,6 +1,7 @@
 package util
 
 import (
+	"ecomm/internal/helper/common"
 	"net/http"
 	"strings"
 
@@ -8,7 +9,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-func ResponseJSONHTTP(c echo.Context, code int, msg string, data interface{}, metadata interface{}, err error) error {
+func ResponseJSONHTTP(c echo.Context, code int, msg string, data interface{}, meta *common.Meta, err error) error {
 	res := map[string]interface{}{
 		"data":    data,
 		"message": strings.ToLower(http.StatusText(code)),
@@ -21,8 +22,8 @@ func ResponseJSONHTTP(c echo.Context, code int, msg string, data interface{}, me
 		}
 	}
 
-	if metadata != nil {
-		res["metadata"] = map[string]interface{}{}
+	if meta != nil {
+		res["meta"] = meta
 	}
 
 	return c.JSON(code, res)

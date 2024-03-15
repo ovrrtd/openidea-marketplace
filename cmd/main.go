@@ -19,6 +19,7 @@ import (
 )
 
 func main() {
+	migrate()
 	zerolog.ErrorStackMarshaler = pkgerrors.MarshalStack
 	logger := zerolog.New(os.Stdout)
 
