@@ -23,7 +23,16 @@ func (r *Restapi) CreateProduct(c echo.Context) error {
 	r.debugError(err)
 	return httpHelper.ResponseJSONHTTP(c, code, "", nil, nil, err)
 }
+func (r *Restapi) GetProductByID(c echo.Context) error {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		return httpHelper.ResponseJSONHTTP(c, http.StatusBadRequest, "", nil, nil, err)
+	}
 
+	prd, seller, code, err := r.service.GetProductWithSellerByID(c.Request().Context(), int64(id))
+	r.debugError(err)
+	return httpHelper.ResponseJSONHTTP(c, code, "", map[string]interface{}{"product": prd, "seller": seller}, nil, err)
+}
 func (r *Restapi) DeleteProductByID(c echo.Context) error {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
@@ -92,6 +101,19 @@ func (r *Restapi) PatchProductStockByID(c echo.Context) error {
 	req.ID = int64(id)
 
 	code, err := r.service.UpdateProductStockByID(c.Request().Context(), req)
+	r.debugError(err)
+	return httpHelper.ResponseJSONHTTP(c, code, "", nil, nil, err)
+}
+
+func (r *Restapi) PurchaseProduct(c echo.Context) error {
+	req := request.PurchaseProduct{}
+	if err := c.Bind(&req); err != nil {
+		return httpHelper.ResponseJSONHTTP(c, http.StatusBadRequest, "", nil, nil, err)
+	}
+	prdId, _ := strconv.Atoi(c.Param("id"))
+	req.ProductId = int64(prdId)
+	req.UserID = c.Get(common.EncodedUserJwtCtxKey.ToString()).(*response.User).ID
+	code, err := r.service.PurchaseProduct(c.Request().Context(), req)
 	r.debugError(err)
 	return httpHelper.ResponseJSONHTTP(c, code, "", nil, nil, err)
 }

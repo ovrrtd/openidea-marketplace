@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
 )
 
 type ProductRepository interface {
@@ -21,16 +22,20 @@ type ProductRepository interface {
 	UpdateByID(ctx context.Context, entity entity.Product) (*entity.Product, int, error)
 	UpdateStockByID(ctx context.Context, id int64, stock int) (int, error)
 	Create(ctx context.Context, entity entity.Product) (*entity.Product, int, error)
+	GetTotalSoldByUserId(ctx context.Context, userId int64) (int, int, error)
+	Purchase(ctx context.Context, id int64, amount int) (int, error)
 }
 
-func NewProductRepository(db *sql.DB) ProductRepository {
+func NewProductRepository(logger zerolog.Logger, db *sql.DB) ProductRepository {
 	return &ProductRepositoryImpl{
-		db: db,
+		logger: logger,
+		db:     db,
 	}
 }
 
 type ProductRepositoryImpl struct {
-	db *sql.DB
+	logger zerolog.Logger
+	db     *sql.DB
 }
 
 func (r *ProductRepositoryImpl) FindAll(ctx context.Context, filter entity.GetAllProductFilter) ([]entity.Product, *common.Meta, int, error) {
@@ -99,7 +104,7 @@ func (r *ProductRepositoryImpl) FindAll(ctx context.Context, filter entity.GetAl
 			orderByClause = "ORDER BY " + "price"
 		}
 		orderBy := strings.ToUpper(filter.OrderBy)
-		if orderBy != "" && (orderBy != "ASC" || orderBy != "DESC") {
+		if orderBy != "" && (orderBy == "ASC" || orderBy == "DESC") {
 			orderByClause += " " + orderBy
 		}
 	}
@@ -344,6 +349,57 @@ func (r *ProductRepositoryImpl) DeleteByID(ctx context.Context, id int64) (int, 
 	}
 	if rId == 0 {
 		return http.StatusNotFound, errors.Wrap(errorer.ErrNotFound, "product not found")
+	}
+
+	return http.StatusOK, nil
+}
+
+func (r *ProductRepositoryImpl) GetTotalSoldByUserId(ctx context.Context, userId int64) (int, int, error) {
+
+	var total int
+	query := `SELECT SUM(purchase_count) FROM products WHERE user_id = $1`
+	if err := r.db.QueryRowContext(ctx, query, userId).Scan(&total); err != nil {
+		return 0, 0, errors.Wrap(errorer.ErrInternalDatabase, err.Error())
+	}
+
+	return total, http.StatusOK, nil
+}
+
+func (r *ProductRepositoryImpl) Purchase(ctx context.Context, id int64, amount int) (int, error) {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return http.StatusInternalServerError, errors.Wrap(errorer.ErrInternalDatabase, err.Error())
+	}
+	defer tx.Rollback()
+
+	// Acquire a row-level lock on the product row for update
+	_, err = tx.ExecContext(ctx, `SELECT id FROM products WHERE id = $1 FOR UPDATE`, id)
+	if err != nil {
+		return http.StatusInternalServerError, errors.Wrap(errorer.ErrInternalDatabase, err.Error())
+	}
+
+	prd := entity.Product{}
+	err = tx.QueryRowContext(ctx, `SELECT id, name, price, stock, purchase_count FROM products WHERE id = $1`, id).
+		Scan(&prd.ID, &prd.Name, &prd.Price, &prd.Stock, &prd.PurchaseCount)
+	if err != nil {
+		return http.StatusInternalServerError, errors.Wrap(errorer.ErrInternalDatabase, err.Error())
+	}
+
+	if prd.Stock < amount {
+		return http.StatusBadRequest, errors.Wrap(errorer.ErrInputRequest(errors.New("insufficient stock")), errorer.ErrInputRequest(errors.New("insufficient stock")).Error())
+	}
+
+	prd.PurchaseCount += amount
+	prd.Stock -= amount
+
+	_, err = tx.ExecContext(ctx, `UPDATE products SET stock = $1, purchase_count = $2 WHERE id = $3`, prd.Stock, prd.PurchaseCount, prd.ID)
+
+	if err != nil {
+		return http.StatusInternalServerError, errors.Wrap(errorer.ErrInternalDatabase, err.Error())
+	}
+
+	if err := tx.Commit(); err != nil {
+		return http.StatusInternalServerError, errors.Wrap(errorer.ErrInternalDatabase, err.Error())
 	}
 
 	return http.StatusOK, nil

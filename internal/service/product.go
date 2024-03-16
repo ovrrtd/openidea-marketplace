@@ -161,3 +161,64 @@ func (s *service) DeleteProductByID(ctx context.Context, id int64) (int, error) 
 	}
 	return http.StatusOK, nil
 }
+
+func (s *service) GetProductWithSellerByID(ctx context.Context, id int64) (*response.Product, *response.SellerDetail, int, error) {
+	prd, code, err := s.GetProductByID(ctx, id)
+	if err != nil {
+		return nil, nil, code, err
+	}
+
+	// Concurrently fetch user and total sold
+	userCh := make(chan *entity.User)
+	totalSoldCh := make(chan int)
+	go func() {
+		user, _, _ := s.userRepo.FindByID(ctx, prd.UserID)
+		userCh <- user
+	}()
+	go func() {
+		totalSold, _, _ := s.productRepo.GetTotalSoldByUserId(ctx, prd.UserID)
+		totalSoldCh <- totalSold
+	}()
+
+	usr := <-userCh
+	totalSold := <-totalSoldCh
+
+	seller := response.SellerDetail{}
+
+	if usr != nil {
+		seller.ID = strconv.Itoa(int(usr.ID))
+		seller.Name = usr.Name
+		seller.Username = usr.Username
+		seller.ProductSoldTotal = totalSold
+		seller.Banks = make([]response.Bank, len(usr.Banks))
+
+		for i, v := range usr.Banks {
+			seller.Banks[i] = response.Bank{
+				ID:            strconv.Itoa(int(v.ID)),
+				Name:          v.Name,
+				AccountName:   v.AccountName,
+				AccountNumber: v.AccountNumber,
+				UserID:        v.UserID,
+				CreatedAt:     v.CreatedAt,
+				UpdatedAt:     v.UpdatedAt,
+			}
+		}
+	}
+
+	return prd, &seller, code, nil
+}
+
+func (s *service) PurchaseProduct(ctx context.Context, req request.PurchaseProduct) (int, error) {
+	if err := validator.ValidateStruct(&req); err != nil {
+		return http.StatusBadRequest, errors.Wrap(errorer.ErrInputRequest(err), errorer.ErrInputRequest(err).Error())
+	}
+	bankId, _ := strconv.Atoi(req.BankAccountId)
+	_, _, err := s.bankRepo.FindByID(ctx, int64(bankId))
+	if err != nil {
+		return http.StatusBadRequest, err
+	}
+
+	code, err := s.productRepo.Purchase(ctx, req.ProductId, req.Quantity)
+
+	return code, err
+}
