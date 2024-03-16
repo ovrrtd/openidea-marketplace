@@ -8,6 +8,7 @@ import (
 	"ecomm/internal/model/response"
 	"ecomm/internal/service"
 	"net/http"
+	"os"
 	"strconv"
 
 	"github.com/labstack/echo/v4"
@@ -44,7 +45,7 @@ func (m *middleware) Authentication(isThrowError bool) func(next echo.HandlerFun
 
 			if token != "" {
 				claims := &common.UserClaims{}
-				err := jwt.VerifyJwt(token, claims)
+				err := jwt.VerifyJwt(token, claims, os.Getenv("JWT_SECRET"))
 				if err != nil {
 					return httpHelper.ResponseJSONHTTP(c, http.StatusForbidden, "", nil, nil, errorer.ErrForbidden)
 				}

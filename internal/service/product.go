@@ -213,12 +213,21 @@ func (s *service) PurchaseProduct(ctx context.Context, req request.PurchaseProdu
 		return http.StatusBadRequest, errors.Wrap(errorer.ErrInputRequest(err), errorer.ErrInputRequest(err).Error())
 	}
 	bankId, _ := strconv.Atoi(req.BankAccountId)
-	_, _, err := s.bankRepo.FindByID(ctx, int64(bankId))
+	bank, _, err := s.bankRepo.FindByID(ctx, int64(bankId))
 	if err != nil {
 		return http.StatusBadRequest, err
 	}
+	prd, code, err := s.productRepo.FindByID(ctx, req.ProductId)
 
-	code, err := s.productRepo.Purchase(ctx, req.ProductId, req.Quantity)
+	if err != nil {
+		return code, err
+	}
+
+	if prd.UserID != bank.UserID {
+		return http.StatusBadRequest, errors.Wrap(errorer.ErrInputRequest(errors.New("bank account not owned by seller")), "bank account not owned by seller")
+	}
+
+	code, err = s.productRepo.Purchase(ctx, req.ProductId, req.Quantity)
 
 	return code, err
 }

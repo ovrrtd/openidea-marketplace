@@ -36,7 +36,7 @@ func (s *service) Register(ctx context.Context, payload request.Register) (*resp
 	}
 
 	// Hash the password before storing it
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(payload.Password), bcrypt.DefaultCost)
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(payload.Password), s.cfg.Salt)
 
 	if err != nil {
 		return nil, http.StatusInternalServerError, errors.Wrap(err, err.Error())
@@ -60,7 +60,7 @@ func (s *service) Register(ctx context.Context, payload request.Register) (*resp
 			ExpiresAt: jwtV5.NewNumericDate(time.Now().Add(time.Hour * 24 * 30)),
 		},
 	}
-	tokenString, err := jwt.GenerateJwt(userClaims)
+	tokenString, err := jwt.GenerateJwt(userClaims, s.cfg.JwtSecret)
 
 	if err != nil {
 		return nil, code, errors.Wrap(err, err.Error())
@@ -98,7 +98,7 @@ func (s *service) Login(ctx context.Context, payload request.Login) (*response.L
 			ExpiresAt: jwtV5.NewNumericDate(time.Now().Add(time.Hour * 24 * 30)),
 		},
 	}
-	tokenString, err := jwt.GenerateJwt(userClaims)
+	tokenString, err := jwt.GenerateJwt(userClaims, s.cfg.JwtSecret)
 
 	if err != nil {
 		return nil, code, errors.Wrap(err, err.Error())
