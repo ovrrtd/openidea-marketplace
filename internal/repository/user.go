@@ -73,5 +73,29 @@ func (r *UserRepositoryImpl) FindByID(ctx context.Context, id int64) (*entity.Us
 		return nil, http.StatusInternalServerError, errors.Wrap(errorer.ErrInternalDatabase, err.Error())
 	}
 
+	banks := []entity.Bank{}
+	rows, err := r.db.QueryContext(ctx, "SELECT id, name, account_name, account_number, user_id, created_at, updated_at FROM banks WHERE user_id = $1", id)
+	if err != nil {
+		return nil, http.StatusInternalServerError, errors.Wrap(errorer.ErrInternalDatabase, err.Error())
+	}
+
+	for rows.Next() {
+		bank := entity.Bank{}
+		if err := rows.Scan(
+			&bank.ID,
+			&bank.Name,
+			&bank.AccountName,
+			&bank.AccountNumber,
+			&bank.UserID,
+			&bank.CreatedAt,
+			&bank.UpdatedAt,
+		); err != nil {
+			return nil, http.StatusInternalServerError, errors.Wrap(errorer.ErrInternalDatabase, err.Error())
+		}
+		banks = append(banks, bank)
+	}
+
+	user.Banks = banks
+
 	return &user, http.StatusOK, nil
 }

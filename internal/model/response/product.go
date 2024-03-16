@@ -14,3 +14,9 @@ type Product struct {
 	CreatedAt     int64    `json:"created_at"`
 	UpdatedAt     int64    `json:"updated_at"`
 }
+
+type PurchaseProduct struct {
+	BankAccountId        string `json:"bankAccountId" validate:"required"`
+	PaymentProofImageUrl string `json:"paymentProofImageUrl" validate:"required,url"`
+	Quantity             int    `json:"quantity" validate:"required,min=1"`
+}

@@ -38,12 +38,13 @@ func main() {
 	defer db.Close()
 
 	// repository init
-	productRepo := repository.NewProductRepository(db)
+	productRepo := repository.NewProductRepository(logger, db)
 	userRepo := repository.NewUserRepository(logger, db)
+	bankRepo := repository.NewBankRepository(logger, db)
 	s3Repo := repository.NewS3Repository(logger)
 
 	// service registry
-	service := service.New(logger, productRepo, userRepo, s3Repo)
+	service := service.New(logger, productRepo, userRepo, s3Repo, bankRepo)
 
 	// middleware init
 	md := mw.New(logger, service)

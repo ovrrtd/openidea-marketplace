@@ -40,3 +40,11 @@ type GetProducts struct {
 	OrderBy        string   `query:"orderBy"`
 	Search         string   `query:"search"`
 }
+
+type PurchaseProduct struct {
+	ProductId            int64  `validate:"required"`
+	BankAccountId        string `json:"bankAccountId" validate:"required"`
+	PaymentProofImageUrl string `json:"paymentProofImageUrl" validate:"required,url"`
+	Quantity             int    `json:"quantity" validate:"required,min=1"`
+	UserID               int64
+}
