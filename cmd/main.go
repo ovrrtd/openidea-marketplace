@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 
 	"github.com/labstack/echo/v4"
@@ -42,9 +43,14 @@ func main() {
 	userRepo := repository.NewUserRepository(logger, db)
 	bankRepo := repository.NewBankRepository(logger, db)
 	s3Repo := repository.NewS3Repository(logger)
-
+	salt, err := strconv.Atoi(os.Getenv("BCRYPT_SALT"))
+	if err != nil {
+		salt = 8
+	}
 	// service registry
-	service := service.New(logger, productRepo, userRepo, s3Repo, bankRepo)
+	service := service.New(
+		service.Config{Salt: salt, JwtSecret: os.Getenv("JWT_SECRET")},
+		logger, productRepo, userRepo, s3Repo, bankRepo)
 
 	// middleware init
 	md := mw.New(logger, service)

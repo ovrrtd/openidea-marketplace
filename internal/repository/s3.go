@@ -42,7 +42,7 @@ type S3RepositoryImpl struct {
 func (s *S3RepositoryImpl) UploadFile(ctx context.Context, filename string, file multipart.File) (string, int, error) {
 	uploader := manager.NewUploader(s.awsS3Client)
 	result, err := uploader.Upload(ctx, &s3.PutObjectInput{
-		Bucket: aws.String("sprint-bucket-public-read"),
+		Bucket: aws.String(os.Getenv("S3_BUCKET_NAME")),
 		Key:    aws.String(filename),
 		ACL:    "public-read",
 		Body:   file,

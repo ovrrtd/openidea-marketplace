@@ -35,7 +35,13 @@ type Service interface {
 	CreateBank(ctx context.Context, ent request.CreateBank) (int, error)
 }
 
+type Config struct {
+	Salt      int
+	JwtSecret string
+}
+
 type service struct {
+	cfg         Config
 	log         zerolog.Logger
 	productRepo repository.ProductRepository
 	userRepo    repository.UserRepository
@@ -43,8 +49,9 @@ type service struct {
 	bankRepo    repository.BankRepository
 }
 
-func New(logger zerolog.Logger, productRepo repository.ProductRepository, userRepo repository.UserRepository, s3Repo repository.S3Repository, bankRepo repository.BankRepository) Service {
+func New(cfg Config, logger zerolog.Logger, productRepo repository.ProductRepository, userRepo repository.UserRepository, s3Repo repository.S3Repository, bankRepo repository.BankRepository) Service {
 	return &service{
+		cfg:         cfg,
 		log:         logger,
 		productRepo: productRepo,
 		userRepo:    userRepo,

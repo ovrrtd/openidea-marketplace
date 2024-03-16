@@ -1,7 +1,7 @@
 package response
 
 type Product struct {
-	ID            string   `json:"id"`
+	ID            string   `json:"productId"`
 	Name          string   `json:"name"`
 	Price         int      `json:"price"`
 	ImageURL      string   `json:"imageUrl"`
